@@ -1,0 +1,533 @@
+---
+title: "AMINGA 2022 Survey"
+toc: true
+knitr:
+  opts_chunk: 
+    collapse: true
+format:
+  html:
+    code-fold: true
+    df-print: paged
+    embed-resources: true
+    self-contained-math: true
+---
+
+# Libraries and Data
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+library(readr)
+library(tidyverse)
+library(here)
+library(janitor)
+library(data.table)
+library(ggplot2)
+library(likert)
+library(scales)
+
+# wordcloud
+library(tidytext)
+library(wordcloud)
+
+survey <- read_csv(
+  here(
+    "Data", "AMINGA Youth Participant Evaluation (2022)(1-107)(1).xlsx - Sheet1.csv"
+  )
+  
+) %>% 
+  clean_names()
+```
+
+# Lessons
+
+## Classes
+
+```{r}
+survey_df <- survey %>% 
+  dplyr::select(
+    sport_modalidade, 
+    gender_genero, 
+    english_1_not_great_3_neutral_5_amazing_ingles_1_suficiente_3_bom_5_muito_bom,
+    art_1_not_great_3_neutral_5_amazing_arte_1_suficiente_3_bom_5_muito_bom,
+    computer_1_not_great_3_neutral_5_amazing_computer_1_suficiente_3_bom_5_muito_bom,
+    team_building_1_not_great_3_neutral_5_amazing_trabalho_de_equipa_1_suficiente_3_bom_5_muito_bom,
+    yoga_mindfulness_1_not_great_3_neutral_5_amazing_ioga_atencao_plena_1_suficiente_3_bom_5_muito_bom,
+    food_1_not_great_3_neutral_5_amazing_comida_1_suficiente_3_bom_5_muito_bom,
+    aminga_staff_2022_overall_1_not_great_3_neutral_5_amazing_equipa_de_aminga_2022_em_geral_1_suficiente_3_bom_5_muito_bom,
+    aminga_camp_2022_overall_1_not_great_3_neutral_5_amazing_campus_aminga_2022_em_geral_1_suficiente_3_bom_5_muito_bom
+) %>% 
+  dplyr::rename(
+    english = english_1_not_great_3_neutral_5_amazing_ingles_1_suficiente_3_bom_5_muito_bom,
+    art = art_1_not_great_3_neutral_5_amazing_arte_1_suficiente_3_bom_5_muito_bom,
+    computer = computer_1_not_great_3_neutral_5_amazing_computer_1_suficiente_3_bom_5_muito_bom,
+    team_building = team_building_1_not_great_3_neutral_5_amazing_trabalho_de_equipa_1_suficiente_3_bom_5_muito_bom,
+    yoga = yoga_mindfulness_1_not_great_3_neutral_5_amazing_ioga_atencao_plena_1_suficiente_3_bom_5_muito_bom,
+    food = food_1_not_great_3_neutral_5_amazing_comida_1_suficiente_3_bom_5_muito_bom,
+    staff_overall = aminga_staff_2022_overall_1_not_great_3_neutral_5_amazing_equipa_de_aminga_2022_em_geral_1_suficiente_3_bom_5_muito_bom,
+    camp_overall = aminga_camp_2022_overall_1_not_great_3_neutral_5_amazing_campus_aminga_2022_em_geral_1_suficiente_3_bom_5_muito_bom,
+    sport = sport_modalidade,
+    gender = gender_genero
+  ) %>% 
+  mutate(
+    sport = trimws(gsub("\\([^\\(\\)]*\\)", "", sport)),
+    gender = trimws(gsub("\\([^\\(\\)]*\\)", "", gender))
+  ) %>% 
+  mutate(across(where(is.numeric), function(x) factor(x, levels = 1:5, labels = c(
+              "Not Great", 
+              "Meh",
+              "Neutral",
+              "Great",
+              "Amazing"
+            ))))  %>% 
+  as.data.frame()
+
+
+comments_sport_df <- survey %>% 
+  select(
+    i_loved_about_the_sport_eu_amei_sobre_a_modalidade, 
+    i_would_change_about_the_sport_eu_mudaria_sobre_a_modalidade,
+    i_liked_about_the_sport_eu_gosto_sobre_a_modalidade,
+    comments_regarding_art_class_comentarios_sobre_as_aulas_de_arte,
+    comments_regarding_english_class_comentarios_sobre_a_aula_de_ingles,
+    comments_regarding_computer_class_comentarios_sobre_as_aulas_de_informatica,
+    comments_regarding_team_building_comentarios_sobre_trabalho_de_equipa,
+    comments_regarding_yoga_class_comentarios_sobre_a_aula_de_ioga,
+    comments_regarding_the_food_comentarios_sobre_a_comida,
+    aminga_staff_2022_overall_insert_appreciations_for_any_of_the_staff_equipa_de_aminga_em_geral_algum_comentario_sobre_qualquer_um_da_equipa_aminga,
+    any_comments_or_suggestions_algum_comentario_ou_sugestao
+) 
+
+
+prep_word_cloud <- function(colname){
+  
+  pt_stopwords <- tibble(word = stopwords::stopwords('pt'))
+  
+  comments_sport_df %>% 
+    select({{colname}}) %>% 
+    unnest_tokens(word, {{colname}}) %>% 
+    count(word, sort = TRUE)%>% 
+    anti_join(pt_stopwords)
+  
+}
+```
+
+```{r}
+likert_subjects <- likert(items = survey_df %>% dplyr::select(english, art, computer, team_building, yoga))
+```
+
+
+```{r}
+likert_subjects$results
+```
+
+We can see that for each of the subjects more than half of all students thought the class was amazing.
+
+```{r}
+summary(likert_subjects, center = 3, ordered = TRUE)
+```
+
+We find that at most 8% of students had a negative experience of any lesson.
+
+
+```{r}
+plot(likert_subjects, centered=TRUE, center=3, include.center=TRUE)
+```
+
+We can see that over 70% students had a positive experience of any of the lessons. In particular, 93% of students had a positive experience of Team Building.
+
+
+## Food
+
+```{r}
+likert_food <- likert(survey_df %>% select(food))
+likert_food$results
+```
+
+We can see that more than three-quarters of students thought the food was amazing.
+
+
+```{r}
+summary(likert_food, center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_food)
+```
+We find that 93% of students had a positive experience of the food.
+
+## Overall Camp
+
+```{r}
+likert_camp <- likert(survey_df %>% select(staff_overall, camp_overall))
+likert_camp$results
+```
+
+Over 95% of students thought the staff were amazing and nearly 90% thought the camp overall was amazing.
+
+```{r}
+summary(likert_camp, center = 3, ordered = TRUE)
+```
+
+Nobody had a negative experience of either the camp nor the staff.
+
+```{r}
+plot(likert_camp, centered=TRUE, center=3, include.center=TRUE)
+```
+
+Everyone had a positive experience of the staff and 97% had a positive experience of the camp overall.
+
+## Return Next Year
+
+```{r}
+aminga_returns_counts <- survey %>% 
+  select(do_you_want_to_return_to_aminga_camp_in_2023_queres_voltar_para_o_campus_aminga_em_2023) %>% 
+  rename(return_2023 = do_you_want_to_return_to_aminga_camp_in_2023_queres_voltar_para_o_campus_aminga_em_2023) %>% 
+  mutate(
+    return_2023 = trimws(gsub("\\([^\\(\\)]*\\)", "", return_2023))
+  ) %>% 
+  count(return_2023) %>% 
+  mutate(percentage = n/sum(n)) 
+
+aminga_returns_counts %>%
+  mutate(return_2023 = factor(return_2023, levels = c("No", "Maybe", "Yes"), labels = c("No", "Maybe", "Yes"), ordered = TRUE)) %>% 
+  ggplot(., aes(return_2023, percentage)) + 
+  geom_col() + 
+  scale_y_continuous("Percentage\n", labels = percent) + 
+  scale_x_discrete("\nResponse") + 
+  ggtitle("Will you return to AMINGA in 2023?")
+```
+
+
+# Gender
+
+## Classes
+
+```{r}
+temp_class_gender <- survey_df %>% 
+  dplyr::select(gender, english, art, computer, team_building, yoga) %>% 
+  drop_na()
+
+likert_subjects_gender <- likert(
+  items = temp_class_gender %>% dplyr::select(english, art, computer, team_building, yoga) , 
+  grouping = temp_class_gender %>% dplyr::pull(gender)
+)
+
+likert_subjects_gender$results
+```
+
+```{r}
+summary(likert_subjects_gender,center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_subjects_gender, centered=TRUE, center=3, include.center=TRUE)
+```
+
+## Food
+
+```{r}
+temp_food_gender <- survey_df %>% dplyr::select(gender, food) %>% drop_na()
+
+likert_food_gender <- likert(temp_food_gender %>% select(food), grouping = temp_food_gender %>% pull(gender))
+likert_food_gender$results
+```
+
+```{r}
+summary(likert_food_gender, center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_food_gender , centered=TRUE, center=3, include.center=TRUE)
+```
+
+## Overall Camp
+
+```{r}
+temp_camp_gender <- survey_df %>% dplyr::select(gender, staff_overall, camp_overall) %>% drop_na()
+
+likert_camp_gender <- likert(temp_camp_gender %>% select(staff_overall, camp_overall), grouping = temp_camp_gender %>% pull(gender))
+likert_camp_gender$results
+```
+
+```{r}
+summary(likert_camp_gender, center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_camp_gender, centered=TRUE, center=3, include.center=TRUE)
+```
+
+# Sport
+
+## Classes
+
+```{r}
+temp_class_sport <- survey_df %>% dplyr::select(sport, english, art, computer, team_building, yoga) %>% drop_na()
+
+likert_subjects_sport <- likert(
+  items = temp_class_sport %>% dplyr::select(english, art, computer, team_building, yoga) , 
+  grouping = temp_class_sport %>% dplyr::pull(sport)
+)
+
+likert_subjects_sport$results
+```
+
+```{r}
+summary(likert_subjects_sport,center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_subjects_sport, centered=TRUE, center=3, include.center=TRUE)
+```
+
+## Food
+
+```{r}
+temp_food_sport <- survey_df %>% dplyr::select(sport, food) %>% drop_na()
+
+likert_food_sport <- likert(temp_food_sport %>% select(food), grouping = temp_food_sport %>% pull(sport))
+likert_food_sport$results
+```
+
+```{r}
+summary(likert_food_sport, center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_food_sport , centered=TRUE, center=3, include.center=TRUE)
+```
+
+## Overall Camp
+
+```{r}
+temp_overall_sport <- survey_df %>% dplyr::select(sport, staff_overall, camp_overall) %>% drop_na()
+
+likert_camp_sport <- likert(temp_overall_sport %>% select(staff_overall, camp_overall), grouping = temp_overall_sport %>% pull(sport))
+likert_camp_sport$results
+```
+
+```{r}
+summary(likert_camp_sport, center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_camp_sport, centered=TRUE, center=3, include.center=TRUE)
+```
+
+# Sport By Gender
+
+## Classes
+
+```{r}
+temp_class_sport_gender<- survey_df %>% drop_na(gender, sport) %>% unite("sport group", c(gender, sport), sep = " ") %>% dplyr::select(`sport group`, english, art, computer, team_building, yoga) %>% drop_na()
+
+likert_subjects_sport_gender <- likert(
+  items = temp_class_sport_gender %>% dplyr::select(english, art, computer, team_building, yoga) , 
+  grouping = temp_class_sport_gender %>% dplyr::pull(`sport group`)
+)
+
+likert_subjects_sport_gender$results
+```
+
+```{r}
+summary(likert_subjects_sport_gender,center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_subjects_sport_gender, centered=TRUE, center=3, include.center=TRUE)
+```
+
+## Food
+
+```{r}
+temp_food_sport_gender <- survey_df  %>% drop_na(gender, sport) %>% unite("sport group", c(gender, sport), sep = " ") %>% dplyr::select(`sport group`, food) %>% drop_na()
+
+likert_food_sport_gender <- likert(temp_food_sport_gender %>% select(food), grouping = temp_food_sport_gender %>% pull(`sport group`))
+likert_food_sport_gender$results
+```
+
+```{r}
+summary(likert_food_sport_gender, center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_food_sport_gender , centered=TRUE, center=3, include.center=TRUE)
+```
+
+## Overall Camp
+
+```{r}
+temp_overall_sport_gender <- survey_df %>% drop_na(gender, sport) %>% unite("sport group", c(gender, sport), sep = " ") %>% dplyr::select(`sport group`, staff_overall, camp_overall) %>% drop_na()
+
+likert_camp_sport_gender <- likert(temp_overall_sport_gender %>% select(staff_overall, camp_overall), grouping = temp_overall_sport_gender %>% pull(`sport group`))
+likert_camp_sport_gender$results
+```
+
+```{r}
+summary(likert_camp_sport_gender, center = 3, ordered = TRUE)
+```
+
+```{r}
+plot(likert_camp_sport_gender, centered=TRUE, center=3, include.center=TRUE)
+```
+
+# Comments
+## Sports
+
+### I loved about the sport
+```{r}
+sport_love_count <- prep_word_cloud(i_loved_about_the_sport_eu_amei_sobre_a_modalidade) 
+
+wordcloud(words = sport_love_count$word, 
+          freq = sport_love_count$n, 
+          min.freq = 1, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+
+
+
+```
+### I would change about the sport
+
+```{r}
+sport_change_count <- prep_word_cloud(i_would_change_about_the_sport_eu_mudaria_sobre_a_modalidade) 
+
+wordcloud(words = sport_change_count$word, 
+          freq = sport_change_count$n, 
+          min.freq = 1, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### I liked about the sport
+
+
+```{r}
+sport_liked_count <- prep_word_cloud(i_liked_about_the_sport_eu_gosto_sobre_a_modalidade) 
+
+wordcloud(words = sport_liked_count$word, 
+          freq = sport_liked_count$n, 
+          min.freq = 1, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### Arts Comments
+
+```{r}
+arts_comments <- prep_word_cloud(comments_regarding_art_class_comentarios_sobre_as_aulas_de_arte) 
+
+wordcloud(words = arts_comments$word, 
+          freq = arts_comments$n, 
+          min.freq = 2, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### English Comments
+
+```{r}
+english_comments <- prep_word_cloud(comments_regarding_english_class_comentarios_sobre_a_aula_de_ingles) 
+
+wordcloud(words = english_comments$word, 
+          freq = english_comments$n, 
+          min.freq = 2, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### Computer Comments
+
+```{r}
+computer_comments <- prep_word_cloud(comments_regarding_computer_class_comentarios_sobre_as_aulas_de_informatica) 
+
+wordcloud(words = computer_comments$word, 
+          freq = computer_comments$n, 
+          min.freq = 2, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### Team Building Comments
+
+```{r}
+team_building_comments <- prep_word_cloud(comments_regarding_team_building_comentarios_sobre_trabalho_de_equipa) 
+
+wordcloud(words = team_building_comments$word, 
+          freq = team_building_comments$n, 
+          min.freq = 2, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+### Yoga Comments
+
+```{r}
+yoga_comments <- prep_word_cloud(comments_regarding_yoga_class_comentarios_sobre_a_aula_de_ioga) 
+
+wordcloud(words = yoga_comments$word, 
+          freq = yoga_comments$n, 
+          min.freq = 2, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### Food Comments
+
+
+```{r}
+food_comments <- prep_word_cloud(comments_regarding_the_food_comentarios_sobre_a_comida) 
+
+wordcloud(words = food_comments$word, 
+          freq = food_comments$n, 
+          min.freq = 2, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+
+
+
+
+### AMINGA Staff Comments
+
+```{r}
+staff_comments <- prep_word_cloud(aminga_staff_2022_overall_insert_appreciations_for_any_of_the_staff_equipa_de_aminga_em_geral_algum_comentario_sobre_qualquer_um_da_equipa_aminga) 
+
+wordcloud(words = staff_comments$word, 
+          freq = staff_comments$n, 
+          min.freq = 2, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+
+
+
+### Any Comments or Suggestions
+
+```{r}
+any_comments <- prep_word_cloud(any_comments_or_suggestions_algum_comentario_ou_sugestao) 
+
+wordcloud(words = any_comments$word, 
+          freq = any_comments$n, 
+          min.freq = 2, 
+          random.order=FALSE, 
+          rot.per=0.3, 
+          colors=brewer.pal(8, "Dark2"))
+```
